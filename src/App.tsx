@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { GetData } from "./lib/api";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./components/ui/button";
+import { useMemo } from "react";
 
 function stringifyUnknown(value: unknown): string {
   if (typeof value === "string") return value;
@@ -18,31 +19,51 @@ function App() {
   });
 
   const navigate = useNavigate();
-
   const [searchParams] = useSearchParams();
-
-  const allKeysInSearchParams = Array.from(searchParams.keys());
 
   const filtersV2 = data.data?.filtersV2 ?? {
     filters: [],
     tabs: [],
   };
+  const tabSearchParam = searchParams.get("tab");
 
   const selectedTab = filtersV2.tabs.find((tab) => {
-    const keysInValuesOfTab = Object.keys(tab.value);
-    console.log(keysInValuesOfTab, allKeysInSearchParams);
-    const x = keysInValuesOfTab.some((key) => {
-      const param = searchParams.get(key);
-      if (!param) return false;
-      return param === tab.value[key];
-    });
-    console.log({ x });
-    return x;
+    return tab.key === tabSearchParam;
   });
+
+  const constructParamMapping = useMemo(() => {
+    const paramToSend: Record<string, string> = {};
+
+    if (!tabSearchParam) return paramToSend;
+
+    const tabSearchParamValueFromFilterV2 = filtersV2.tabs.find(
+      (tab) => tab.key === tabSearchParam
+    );
+
+    if (!tabSearchParamValueFromFilterV2) return paramToSend;
+
+    console.log({ tabSearchParamValueFromFilterV2 });
+
+    const keysInValuesOfTab = Object.entries(
+      tabSearchParamValueFromFilterV2.value
+    );
+
+    console.log({ keysInValuesOfTab });
+    keysInValuesOfTab.forEach(([key, value]) => {
+      console.log({ key, value });
+      paramToSend[key] = value as string;
+    });
+
+    return paramToSend;
+  }, [filtersV2.tabs, tabSearchParam]);
+
+  const stringifiedParams = JSON.stringify(constructParamMapping);
+  console.log({ stringifiedParams });
 
   return (
     <>
-      {selectedTab ? JSON.stringify(selectedTab) : "NO TAB SELECTED"}
+      <strong>Params to send to backend = {stringifiedParams}</strong>
+      <hr />
       <div className="flex gap-3 p-4">
         {filtersV2.tabs.map((tab) => (
           <Button
@@ -50,17 +71,15 @@ function App() {
             variant={selectedTab?.key === tab.key ? "destructive" : "default"}
             onClick={() => {
               const newSearchParams = new URLSearchParams();
-              Object.entries(tab.value).forEach(([key, value]) => {
-                newSearchParams.set(key, stringifyUnknown(value));
-              });
+              newSearchParams.set("tab", stringifyUnknown(tab.key));
+
               navigate({
                 search: newSearchParams.toString(),
               });
             }}
           >
-            {tab.display} {tab.key}
+            {tab.display} {tab.key} {selectedTab?.key}
             {/* if selected tab, then show yes else no */}
-            {selectedTab?.key === tab.key ? "YES" : "NO"}
           </Button>
         ))}
       </div>

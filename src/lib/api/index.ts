@@ -116,6 +116,7 @@ export interface Tab {
   display: string;
   key: string;
   count: number;
+  primaryKey: string;
   value: Record<string, unknown>;
 }
 
